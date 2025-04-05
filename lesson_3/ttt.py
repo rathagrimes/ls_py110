@@ -51,6 +51,8 @@ HUMAN_SIDE = X_SIDE # or O_SIDE or CHOOSE
 PLAYS_FIRST = HUMAN # or COMPUTER or CHOOSE
 ## -------------------------------------------------
 
+CENTER_CELL = 4
+
 # This provides a mapping of spreadsheet notation identifiers to the
 # internal board list indices. It also serves for input validation.
 VALID_CELLS = [row + col
@@ -190,7 +192,7 @@ def computers_turn(board):
 
     # if the center square is available, take it
     if choice is None and 4 in remaining_choices(board):
-        choice = 4
+        choice = CENTER_CELL
 
     # TODO: place in a square adjacent to a previous move, if possible
 
