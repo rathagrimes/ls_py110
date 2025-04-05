@@ -33,7 +33,6 @@
 # TODO:
 # - if configured to prompt for x/y, going first or not etc., do it per
 #   match, not per program run.
-# - support >2 players (though rules would be unclear).
 
 import random
 import os
@@ -110,7 +109,6 @@ def print_board(b, c):
         return X_PP[row_index] if side == X_SIDE else O_PP[row_index]
 
     def cell_row(board, config, cell, row):
-
         result = ''
         if board[cell] is None:
             result += ' ' * 11
@@ -158,7 +156,16 @@ def set_cell(board, cell, player_id):
 def remaining_choices(board):
     return [i for i, mark in enumerate(board) if mark is None]
 
-def players_turn(board):
+def find_completable_line(board, player_id):
+    if player_id not in [HUMAN, COMPUTER]:
+        raise ValueError("Not a valid player identifier: " + player_id)
+    for combo in WINNING_COMBOS:
+        line = [board[cell] for cell in combo]
+        if line.count(player_id) == 2 and line.count(None) == 1:
+            return combo[line.index(None)]
+    return None
+
+def humans_turn(board):
     while True:
         remaining = remaining_choices(board)
         if len(remaining) == 1:
@@ -175,15 +182,6 @@ def players_turn(board):
                 continue
         set_cell(board, selection_index, HUMAN)
         break
-
-def find_completable_line(board, player_id):
-    if player_id not in [HUMAN, COMPUTER]:
-        raise ValueError("Not a valid player identifier: " + player_id)
-    for combo in WINNING_COMBOS:
-        line = [board[cell] for cell in combo]
-        if line.count(player_id) == 2 and line.count(None) == 1:
-            return combo[line.index(None)]
-    return None
 
 def computers_turn(board):
     # offense, then defense
@@ -219,7 +217,7 @@ def play_game(config):
             turn_number += 1
             current_player = config[turn_number % len(config)]
             if current_player['player'] == HUMAN:
-                players_turn(board)
+                humans_turn(board)
             else:
                 computers_turn(board)
 
