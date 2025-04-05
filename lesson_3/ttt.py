@@ -1,28 +1,65 @@
-# TODO:
+# Notes on program design:
 #
+# You can configure the game to prompt the player to choose which side
+# they want to play and/or whether they play first. See constants below.
+#
+# The board is an array of cells using the following indexes:
+#
+# 0 1 2
+# 3 4 5
+# 6 7 8
+#
+# In the board array, positions are marked by 'h', 'c', or None
+# ('h' and 'c' are constants HUMAN and COMPUTER, respectively).
+#
+# sample board: [None, 'h', None, None, None, 'c', 'c', None, 'h']
+#
+# The human player is asked to identify cells by spreadsheet notation,
+# which is then translated to the internal indexed representation.
+#
+# We represent player order and side assignment using a 'config'
+# data structure like this:
+# [{'player': COMPUTER, 'side': O_SIDE, 'pp': 'Computer'},
+#  {'player': HUMAN, 'side': X_SIDE, 'pp': 'Human'}]
+# This conveys that computer plays first and is playing O.
+#
+# When we print the board, for a given cell we have to first match up
+# the player identifier (HUMAN or COMPUTER) with the side assigned at
+# game start (X_SIDE or O_SIDE) and then use the appropriate pretty
+# print string for the assigned side (X_PP vs O_PP). The pretty print
+# strings are 5 rows by 11 columns and were created with the python
+# ascii art module.
+#
+# TODO:
 # - if configured to prompt for x/y, going first or not etc., do it per
 #   match, not per program run.
 # - support >2 players (though rules would be unclear).
 
-import random, os
+import random
+import os
 
 HUMAN = 'h'
 COMPUTER = 'c'
 
-X_SIDE = 'x'
-O_SIDE = 'o'
+X_SIDE = 'X'
+O_SIDE = 'O'
 
+CHOOSE = 'choose'
 
 ## -------------------------------------------------
 # Config for gameplay options -- you may edit these
-HUMAN_SIDE = X_SIDE # or O_SIDE or 'choose'
-PLAYS_FIRST = HUMAN # or COMPUTER or 'choose'
+HUMAN_SIDE = X_SIDE # or O_SIDE or CHOOSE
+PLAYS_FIRST = HUMAN # or COMPUTER or CHOOSE
 ## -------------------------------------------------
 
-
+# This provides a mapping of spreadsheet notation identifiers to the
+# internal board list indices. It also serves for input validation.
 VALID_CELLS = [row + col
                for col in ['1', '2', '3']
                for row in ['A', 'B', 'C']]
+
+# These are the sets of cells that can win the game if they contain
+# all three of the same marker.
 WINNING_COMBOS = [
     [0, 1, 2], [3, 4, 5], [6, 7, 8], # rows
     [0, 3, 6], [1, 4, 7], [2, 5, 8], # columns
@@ -47,48 +84,65 @@ a8"     "8a
 """.strip('\n').split('\n')]
 
 
-def get_pp_row(player_id, config, row_index):
+def get_yn_choice(prompt):
+    while True:
+        response = input(prompt + " (y/n) ")
+        try:
+            return bool(['n', 'y'].index(response[:1].lower()))
+        except ValueError:
+            print(f"Invalid value '{response}', try again.")
+
+def get_config(config, player_id, prop_name=None):
     for c in config:
         if c['player'] == player_id:
-            return X_PP[row_index] if c['side'] == X_SIDE else O_PP[row_index]
-    return ' ' * 11
+            if prop_name is None:
+                return c
+            if prop_name in c:
+                return c[prop_name]
+            raise ValueError(f"Prop {prop_name} not found for player {player_id}.")
+    raise ValueError(f"Player {player_id} not found.")
 
-def cell_row(board, config, cell, row):
-    result = ''
-    if board[cell] is None:
-        result += ' '*11
-    else:
-        result += get_pp_row(board[cell], config, row)
-    return result
-
-# sample board: [None, 'x', None, None, None, 'o', 'o', None, 'x']
 
 def print_board(b, c):
+
+    def get_pp_row(player_id, config, row_index):
+        side = get_config(config, player_id, 'side')
+        return X_PP[row_index] if side == X_SIDE else O_PP[row_index]
+
+    def cell_row(board, config, cell, row):
+
+        result = ''
+        if board[cell] is None:
+            result += ' ' * 11
+        else:
+            result += get_pp_row(board[cell], config, row)
+        return result
+
     os.system('clear')
-    print('  ' + (' '*5) + 'A' + (' '*5) + '   ' + (' '*5) + 'B' + (' '*5) + '   ' + (' '*5) + 'C')
-    print('  ' + (' '*11) + ' | ' + (' '*11) + ' |')
+    print('  ' + (' ' * 5) + 'A' + (' ' * 5) + '   ' + (' ' * 5) + 'B' + (' ' * 5) + '   ' + (' ' * 5) + 'C')
+    print('  ' + (' ' * 11) + ' | ' + (' ' * 11) + ' |')
     print('  ' + cell_row(b, c, cell=0, row=0) + ' | ' + cell_row(b, c, cell=1, row=0) + ' | ' + cell_row(b, c, cell=2, row=0))
     print('  ' + cell_row(b, c, cell=0, row=1) + ' | ' + cell_row(b, c, cell=1, row=1) + ' | ' + cell_row(b, c, cell=2, row=1))
     print('1 ' + cell_row(b, c, cell=0, row=2) + ' | ' + cell_row(b, c, cell=1, row=2) + ' | ' + cell_row(b, c, cell=2, row=2))
     print('  ' + cell_row(b, c, cell=0, row=3) + ' | ' + cell_row(b, c, cell=1, row=3) + ' | ' + cell_row(b, c, cell=2, row=3))
     print('  ' + cell_row(b, c, cell=0, row=4) + ' | ' + cell_row(b, c, cell=1, row=4) + ' | ' + cell_row(b, c, cell=2, row=4))
-    print('  ' + (' '*11) + ' | ' + (' '*11) + ' |')
-    print('  ' + ('-'*11) + '-+-' + ('-'*11) + '-|-' + ('-'*11) + '-')
-    print('  ' + (' '*11) + ' | ' + (' '*11) + ' |')
+    print('  ' + (' ' * 11) + ' | ' + (' ' * 11) + ' |')
+    print('  ' + ('-' * 11) + '-+-' + ('-' * 11) + '-|-' + ('-' * 11) + '-')
+    print('  ' + (' ' * 11) + ' | ' + (' ' * 11) + ' |')
     print('  ' + cell_row(b, c, cell=3, row=0) + ' | ' + cell_row(b, c, cell=4, row=0) + ' | ' + cell_row(b, c, cell=5, row=0))
     print('  ' + cell_row(b, c, cell=3, row=1) + ' | ' + cell_row(b, c, cell=4, row=1) + ' | ' + cell_row(b, c, cell=5, row=1))
     print('2 ' + cell_row(b, c, cell=3, row=2) + ' | ' + cell_row(b, c, cell=4, row=2) + ' | ' + cell_row(b, c, cell=5, row=2))
     print('  ' + cell_row(b, c, cell=3, row=3) + ' | ' + cell_row(b, c, cell=4, row=3) + ' | ' + cell_row(b, c, cell=5, row=3))
     print('  ' + cell_row(b, c, cell=3, row=4) + ' | ' + cell_row(b, c, cell=4, row=4) + ' | ' + cell_row(b, c, cell=5, row=4))
-    print('  ' + (' '*11) + ' | ' + (' '*11) + ' |')
-    print('  ' + ('-'*11) + '-+-' + ('-'*11) + '-|-' + ('-'*11) + '-')
-    print('  ' + (' '*11) + ' | ' + (' '*11) + ' |')
+    print('  ' + (' ' * 11) + ' | ' + (' ' * 11) + ' |')
+    print('  ' + ('-' * 11) + '-+-' + ('-' * 11) + '-|-' + ('-' * 11) + '-')
+    print('  ' + (' ' * 11) + ' | ' + (' ' * 11) + ' |')
     print('  ' + cell_row(b, c, cell=6, row=0) + ' | ' + cell_row(b, c, cell=7, row=0) + ' | ' + cell_row(b, c, cell=8, row=0))
     print('  ' + cell_row(b, c, cell=6, row=1) + ' | ' + cell_row(b, c, cell=7, row=1) + ' | ' + cell_row(b, c, cell=8, row=1))
     print('3 ' + cell_row(b, c, cell=6, row=2) + ' | ' + cell_row(b, c, cell=7, row=2) + ' | ' + cell_row(b, c, cell=8, row=2))
     print('  ' + cell_row(b, c, cell=6, row=3) + ' | ' + cell_row(b, c, cell=7, row=3) + ' | ' + cell_row(b, c, cell=8, row=3))
     print('  ' + cell_row(b, c, cell=6, row=4) + ' | ' + cell_row(b, c, cell=7, row=4) + ' | ' + cell_row(b, c, cell=8, row=4))
-    print('  ' + (' '*11) + ' | ' + (' '*11) + ' |')
+    print('  ' + (' ' * 11) + ' | ' + (' ' * 11) + ' |')
     #print("Remaining choices", remaining_choices(b))
 
 def initialize_board():
@@ -140,8 +194,8 @@ def computers_turn(board):
     if choice is None and 4 in remaining_choices(board):
         choice = 4
 
-    # todo: place in a square adjacent to a previous move, if possible
-        
+    # TODO: place in a square adjacent to a previous move, if possible
+
     # Fallback: random
     if choice is None:
         choice = random.choice(remaining_choices(board))
@@ -155,8 +209,6 @@ def winner(board):
             return board[sq1]
     return None
 
-# Config expresses playing order and which player is 'x' vs 'o'
-# Sample config: [{'player': 'c', 'side': 'o'}, {'player': 'h', 'side': 'x'}]
 def play_game(config):
     board = initialize_board()
     turn_number = -1
@@ -174,7 +226,7 @@ def play_game(config):
             maybe_winner = winner(board)
             if maybe_winner:
                 print_board(board, config)
-                print("Winner: " + ('Human' if maybe_winner == HUMAN else 'Computer'))
+                print("Winner: " + get_config(config, maybe_winner, 'pp'))
                 return maybe_winner
             if len(remaining_choices(board)) == 0:
                 print_board(board, config)
@@ -183,29 +235,18 @@ def play_game(config):
     finally:
         print(f"Game ended after {turn_number + 1} turns.")
 
-def get_yn_choice(prompt):
-    while True:
-        response = input(prompt + " (y/n) ")
-        try:
-            return bool(['n', 'y'].index(response[:1].lower()))
-        except ValueError:
-            print(f"Invalid value '{response}', try again.")
-        
-def get_player_order_choice():
-    if get_yn_choice("Do you want to play first?"):
-        return HUMAN
-    return COMPUTER
-            
-def get_human_side_choice():
-    if get_yn_choice("Do you want to be 'x'?"):
-        return X_SIDE
-    return O_SIDE
-
 def main_loop():
-    print("Welcome to TTT.")
+    def get_player_order_choice():
+        if get_yn_choice("Do you want to play first?"):
+            return HUMAN
+        return COMPUTER
 
-    # TODO refactor to do the choice prompting per match instead of
-    #      making the user restart the program.
+    def get_human_side_choice():
+        if get_yn_choice("Do you want to be 'x'?"):
+            return X_SIDE
+        return O_SIDE
+
+    print("Welcome to TTT.")
 
     # First determine which player is which side
     human_side = get_human_side_choice() if HUMAN_SIDE == 'choose' else HUMAN_SIDE
@@ -213,31 +254,46 @@ def main_loop():
     # Next work out playing order
     plays_first = get_player_order_choice() if PLAYS_FIRST == 'choose' else PLAYS_FIRST
 
-    player_config = [{'player': HUMAN, 'side': human_side}]
+    # Set up the configs
+    config = [{'player': HUMAN, 'pp': 'Human', 'side': human_side, 'score': 0}]
     insert_computer_at = 0 if plays_first == COMPUTER else 1
-    player_config.insert(insert_computer_at, {'player': COMPUTER, 'side': O_SIDE if human_side == X_SIDE else X_SIDE})
-    
-    # The main loop keeps track of matches inline.
-    # TODO probably move the match score into the player config, also add
-    #      pretty printable player names -- this would help with >2 players
+    config.insert(insert_computer_at,
+                  {'player': COMPUTER,
+                   'pp': 'Computer',
+                   'side': O_SIDE if human_side == X_SIDE else X_SIDE,
+                   'score': 0})
+
+    # Report out who is playing which side and who plays first.
+    print(" ".join([p['pp'] + ' is ' + p['side'] + '.' for p in config]))
+    print(f"{config[0]['pp']} plays first.")
+
     num_games = 0
-    human_score = 0
-    computer_score = 0
     while True:
         num_games += 1
-        winner = play_game(player_config)
-        if winner == HUMAN:
-            human_score += 1
-        elif winner == COMPUTER:
-            computer_score += 1
-        print(f"Current match score: Human {human_score}, Computer {computer_score} after {num_games} game(s).")
-        if num_games >= 2 and human_score != computer_score:
-            match_winner = HUMAN if human_score > computer_score else COMPUTER
-            print(f"{'Human' if match_winner == HUMAN else 'Computer'} wins the match!!")
-            num_games = human_score = computer_score = 0
+        winner_of_game = play_game(config)
+
+        if winner_of_game is not None:
+            winning_player = get_config(config, winner_of_game)
+            winning_player['score'] += 1
+
+        # Sort descending by score to identify the winner.
+        # Must make a copy here, mutating config would change player order.
+        leaderboard = sorted(config, key=lambda x: x['score'], reverse=True)
+
+        print("Current match score: " + \
+              ', '.join([f'{p["pp"]} {p["score"]}' for p in leaderboard]) + \
+              f" after {num_games} game(s).")
+
+        # Compare score of first two entries to determine winner.
+        if num_games >= 2 and leaderboard[0]['score'] > leaderboard[1]['score']:
+            print(f"{leaderboard[0]['pp']} wins the match!!")
+            # Reset the scores and match game count
+            num_games = 0
+            for c in config:
+                c['score'] = 0
+
         if not get_yn_choice("Do you want to play again?"):
             break
     print("Goodbye!")
 
 main_loop()
-
