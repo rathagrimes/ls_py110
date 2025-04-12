@@ -168,8 +168,8 @@ def find_completable_line(board, player_id):
     return None
 
 def humans_turn(board):
+    remaining = remaining_choices(board)
     while True:
-        remaining = remaining_choices(board)
         if len(remaining) == 1:
             # Skip the question to the player, there's only one choice
             selection_index = remaining[0]
@@ -187,8 +187,12 @@ def humans_turn(board):
 
 def computers_turn(board):
     # offense, then defense
-    choice = find_completable_line(board, COMPUTER) or \
-        find_completable_line(board, HUMAN)
+    # BUGBUG: zero is treated like None in the following
+    # choice = find_completable_line(board, COMPUTER) or \
+    #     find_completable_line(board, HUMAN)
+    choice = find_completable_line(board, COMPUTER)
+    if choice is None:
+        choice = find_completable_line(board, HUMAN)
 
     # if the center square is available, take it
     if choice is None and 4 in remaining_choices(board):
